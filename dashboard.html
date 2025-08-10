@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Dashboard - Product Reviews</title>
+  <style>
+    body { font-family: Arial, sans-serif; max-width: 700px; margin: 20px auto; }
+    h1 { text-align: center; }
+    .product { border: 1px solid #ccc; padding: 15px; margin-bottom: 30px; }
+    .reviews p { margin: 8px 0; border-bottom: 1px solid #eee; padding-bottom: 5px; }
+    label { font-weight: bold; }
+    select, input[type=text], textarea { width: 100%; padding: 8px; margin: 6px 0 10px 0; box-sizing: border-box; }
+    button { background-color: #28a745; color: white; border: none; padding: 10px 15px; cursor: pointer; }
+    button:hover { background-color: #218838; }
+    .stars {
+      color: gold;
+      font-size: 1.1em;
+      display: inline-block;
+      margin-left: 10px;
+    }
+  </style>
+</head>
+<body>
+  <h1>Welcome to Dashboard</h1>
+
+  <div class="product" data-id="product1">
+    <h2>Product 1</h2>
+    <img src="images/product-1.webp" alt="Product 1" style="width: 300px; height: auto; margin-bottom: 15px; border-radius: 8px;" />
+    <form class="review-form">
+      <input type="text" name="userName" placeholder="Your Name" required />
+      
+      <label for="rating1">Rating:</label>
+      <select name="rating" id="rating1" required>
+        <option value="">Select stars</option>
+        <option value="1">★☆☆☆☆ (1)</option>
+        <option value="2">★★☆☆☆ (2)</option>
+        <option value="3">★★★☆☆ (3)</option>
+        <option value="4">★★★★☆ (4)</option>
+        <option value="5">★★★★★ (5)</option>
+      </select>
+      
+      <textarea name="comment" placeholder="Write your review" rows="4" required></textarea>
+      <button type="submit">Submit Review</button>
+    </form>
+    <div class="reviews"></div>
+  </div>
+
+  <div class="product" data-id="product2">
+    <h2>Product 2</h2>
+    <img src="images/product-2.webp" alt="Product 1" style="width: 300px; height: auto; margin-bottom: 15px; border-radius: 8px;" />
+    
+    <form class="review-form">
+      <input type="text" name="userName" placeholder="Your Name" required />
+      
+      <label for="rating2">Rating:</label>
+      <select name="rating" id="rating2" required>
+        <option value="">Select stars</option>
+        <option value="1">★☆☆☆☆ (1)</option>
+        <option value="2">★★☆☆☆ (2)</option>
+        <option value="3">★★★☆☆ (3)</option>
+        <option value="4">★★★★☆ (4)</option>
+        <option value="5">★★★★★ (5)</option>
+      </select>
+      
+      <textarea name="comment" placeholder="Write your review" rows="4" required></textarea>
+      <button type="submit">Submit Review</button>
+    </form>
+    <div class="reviews"></div>
+  </div>
+
+<script>
+  function starsHTML(rating) {
+    // return string of stars - gold stars for rating, empty stars for the rest (5 total)
+    const fullStar = '★';
+    const emptyStar = '☆';
+    return fullStar.repeat(rating) + emptyStar.repeat(5 - rating);
+  }
+
+  async function loadReviews(productId, reviewsDiv) {
+    const res = await fetch('/reviews/' + productId);
+    if (!res.ok) {
+      reviewsDiv.innerHTML = '<p>Error loading reviews</p>';
+      return;
+    }
+    const reviews = await res.json();
+    if(reviews.length === 0) {
+      reviewsDiv.innerHTML = '<p>No reviews yet. Be the first!</p>';
+      return;
+    }
+    reviewsDiv.innerHTML = reviews.map(r => `
+      <p><strong>${r.userName}</strong> <span class="stars">${starsHTML(r.rating)}</span><br>${r.comment}</p>
+    `).join('');
+  }
+
+  document.querySelectorAll('.product').forEach(productDiv => {
+    const productId = productDiv.getAttribute('data-id');
+    const reviewsDiv = productDiv.querySelector('.reviews');
+    const form = productDiv.querySelector('.review-form');
+
+    loadReviews(productId, reviewsDiv);
+
+    form.addEventListener('submit', async e => {
+      e.preventDefault();
+      const userName = form.userName.value.trim();
+      const rating = parseInt(form.rating.value);
+      const comment = form.comment.value.trim();
+
+      if (!userName || !rating || !comment) {
+        alert('Please fill all fields!');
+        return;
+      }
+
+      const res = await fetch('/reviews', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ productId, userName, rating, comment })
+      });
+
+      if (res.ok) {
+        form.reset();
+        loadReviews(productId, reviewsDiv);
+      } else {
+        alert('Failed to submit review');
+      }
+    });
+  });
+</script>
+</body>
+</html>

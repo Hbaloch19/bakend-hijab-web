@@ -2,10 +2,11 @@ const express = require('express');
 const mongoose = require('mongoose');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
+const path = require('path');
 const app = express();
 
 // MongoDB connection
-mongoose.connect('mongodb://localhost:27017/auth-app')
+mongoose.connect('mongodb://localhost:27017/auth-app', { useNewUrlParser: true, useUnifiedTopology: true })
   .then(() => console.log("MongoDB connected"))
   .catch(err => console.error("MongoDB error:", err));
 
@@ -17,30 +18,37 @@ const UserSchema = new mongoose.Schema({
 });
 const User = mongoose.model('User', UserSchema);
 
+// Review Schema
+const ReviewSchema = new mongoose.Schema({
+  productId: String,
+  userName: String,
+  rating: { type: Number, min: 1, max: 5 },
+  comment: String,
+  createdAt: { type: Date, default: Date.now }
+});
+const Review = mongoose.model('Review', ReviewSchema);
+
 // Middleware
 app.use(express.static('public'));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 // Routes
-// Redirect root to signup
-app.get('/', (req, res) => {
-  res.redirect('/signup');
-});
-// Show Signup Page
+app.get('/', (req, res) => res.redirect('/signup'));
+
 app.get('/signup', (req, res) => {
-  res.sendFile(__dirname + '/signup.html');
+  res.sendFile(path.join(__dirname, 'signup.html'));
 });
-// Show Login Page
+
 app.get('/login', (req, res) => {
-  res.sendFile(__dirname + '/login.html');
+  res.sendFile(path.join(__dirname, 'login.html'));
 });
 
 // Signup Route
 app.post('/signup', async (req, res) => {
   try {
     const existing = await User.findOne({ email: req.body.email });
-    if (existing) return res.status(400).json({ message: 'Email already in use' });
+    if (existing) return res.status(400).send('Email already in use');
 
     const hashed = await bcrypt.hash(req.body.password, 10);
     const user = new User({
@@ -49,9 +57,9 @@ app.post('/signup', async (req, res) => {
       password: hashed,
     });
     await user.save();
-    res.status(201).json({ message: 'User created successfully' });
+    res.sendFile(path.join(__dirname, 'dashboard.html'));
   } catch (err) {
-    res.status(400).json({ message: err.message });
+    res.status(400).send(err.message);
   }
 });
 
@@ -59,15 +67,39 @@ app.post('/signup', async (req, res) => {
 app.post('/login', async (req, res) => {
   try {
     const user = await User.findOne({ email: req.body.email });
-    if (!user) return res.status(401).json({ message: 'Invalid credentials' });
+    if (!user) return res.status(401).send('Invalid credentials');
 
     const isMatch = await bcrypt.compare(req.body.password, user.password);
-    if (!isMatch) return res.status(401).json({ message: 'Invalid credentials' });
+    if (!isMatch) return res.status(401).send('Invalid credentials');
 
-    const token = jwt.sign({ id: user._id }, 'secretkey', { expiresIn: '1h' });
-    res.json({ message: 'Login successful', token });
+    res.sendFile(path.join(__dirname, 'dashboard.html'));
   } catch (err) {
-    res.status(400).json({ message: err.message });
+    res.status(400).send(err.message);
+  }
+});
+
+// Get reviews by product
+app.get('/reviews/:productId', async (req, res) => {
+  try {
+    const reviews = await Review.find({ productId: req.params.productId }).sort({ createdAt: -1 });
+    res.json(reviews);
+  } catch (err) {
+    res.status(500).send(err.message);
+  }
+});
+
+// Post new review
+app.post('/reviews', async (req, res) => {
+  try {
+    const { productId, userName, rating, comment } = req.body;
+    if (!productId || !userName || !rating || !comment) {
+      return res.status(400).send('Missing fields in review');
+    }
+    const review = new Review({ productId, userName, rating, comment });
+    await review.save();
+    res.status(201).json(review);
+  } catch (err) {
+    res.status(500).send(err.message);
   }
 });
 
