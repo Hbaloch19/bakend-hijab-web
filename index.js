@@ -6,9 +6,13 @@ const path = require('path');
 const app = express();
 
 // MongoDB connection
-mongoose.connect('mongodb://localhost:27017/auth-app', { useNewUrlParser: true, useUnifiedTopology: true })
-  .then(() => console.log("MongoDB connected"))
-  .catch(err => console.error("MongoDB error:", err));
+require('dotenv').config();
+mongoose.connect(process.env.MONGODB_URI, {
+  useNewUrlParser: true,
+  useUnifiedTopology: true
+})
+.then(() => console.log("MongoDB connected"))
+.catch(err => console.error("MongoDB error:", err));
 
 // User Schema
 const UserSchema = new mongoose.Schema({
